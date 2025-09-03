@@ -2,87 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* AI Document Q&A Design System - Professional & Modern */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core Colors - Professional Blue/Purple Theme */
+    --background: 250 100% 99%;
+    --foreground: 225 25% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 225 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 225 25% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* AI-themed Primary Colors */
+    --primary: 238 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 238 85% 55%;
+    
+    /* Gradient Colors for AI/Tech Appeal */
+    --gradient-start: 240 85% 65%;
+    --gradient-end: 270 85% 60%;
+    --gradient-accent: 250 85% 70%;
+    
+    /* Professional Secondary Colors */
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 225 25% 15%;
+    --secondary-hover: 240 5% 92%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 225 15% 50%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 245 70% 97%;
+    --accent-foreground: 225 25% 15%;
+    --accent-hover: 245 70% 94%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --border: 240 10% 90%;
+    --input: 240 10% 95%;
+    --ring: 238 85% 60%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem;
+    
+    /* Document-specific Colors */
+    --document-bg: 245 15% 98%;
+    --document-border: 240 10% 85%;
+    --upload-zone: 245 50% 98%;
+    --upload-zone-hover: 245 60% 96%;
+    
+    /* Chat Interface Colors */
+    --chat-bg: 250 50% 99%;
+    --chat-user: 238 85% 60%;
+    --chat-ai: 245 15% 95%;
+    
+    /* Success & Warning */
+    --success: 145 85% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 85% 55%;
+    --warning-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    /* Shadows & Effects */
+    --shadow-sm: 0 2px 8px hsl(225 25% 15% / 0.08);
+    --shadow-md: 0 4px 16px hsl(225 25% 15% / 0.12);
+    --shadow-lg: 0 8px 32px hsl(225 25% 15% / 0.16);
+    --shadow-glow: 0 0 40px hsl(238 85% 60% / 0.3);
+    
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Dark mode colors for AI Document Q&A */
+    --background: 225 15% 8%;
+    --foreground: 245 15% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 225 15% 10%;
+    --card-foreground: 245 15% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 225 15% 10%;
+    --popover-foreground: 245 15% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 238 85% 65%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 238 85% 70%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 225 15% 15%;
+    --secondary-foreground: 245 15% 95%;
+    --secondary-hover: 225 15% 20%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 225 15% 15%;
+    --muted-foreground: 225 10% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 225 15% 15%;
+    --accent-foreground: 245 15% 95%;
+    --accent-hover: 225 15% 20%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 85% 65%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 225 15% 20%;
+    --input: 225 15% 18%;
+    --ring: 238 85% 65%;
+
+    /* Document-specific Dark Colors */
+    --document-bg: 225 15% 12%;
+    --document-border: 225 15% 25%;
+    --upload-zone: 225 20% 12%;
+    --upload-zone-hover: 225 25% 15%;
+    
+    /* Chat Interface Dark Colors */
+    --chat-bg: 225 15% 9%;
+    --chat-user: 238 85% 65%;
+    --chat-ai: 225 15% 18%;
+
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -100,6 +145,71 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer utilities {
+  /* Custom gradient utilities */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+  }
+  
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  /* Custom shadow utilities */
+  .shadow-soft {
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .shadow-medium {
+    box-shadow: var(--shadow-md);
+  }
+  
+  .shadow-large {
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  /* Transition utilities */
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .transition-bounce {
+    transition: var(--transition-bounce);
+  }
+  
+  /* Document upload zone animations */
+  .upload-zone {
+    background-color: hsl(var(--upload-zone));
+    border: 2px dashed hsl(var(--border));
+    transition: var(--transition-smooth);
+  }
+  
+  .upload-zone:hover,
+  .upload-zone.dragover {
+    background-color: hsl(var(--upload-zone-hover));
+    border-color: hsl(var(--primary));
+    transform: translateY(-2px);
+  }
+  
+  /* Chat message styling */
+  .chat-message-user {
+    background-color: hsl(var(--chat-user));
+    color: hsl(var(--primary-foreground));
+  }
+  
+  .chat-message-ai {
+    background-color: hsl(var(--chat-ai));
+    color: hsl(var(--foreground));
   }
 }
