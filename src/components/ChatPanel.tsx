@@ -87,11 +87,10 @@ export const ChatPanel = () => {
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col p-0">
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
         {/* Messages */}
-        <div className="flex-1 relative">
-          <ScrollArea className="absolute inset-0 p-4">
-          <div className="space-y-4">
+        <ScrollArea className="flex-1 p-4">
+          <div className="space-y-4 pb-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -148,7 +147,6 @@ export const ChatPanel = () => {
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
-        </div>
 
         {/* Input */}
         <div className="border-t border-border p-4">
