@@ -4,68 +4,148 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Bot, User, FileText, MessageSquare } from "lucide-react";
+import { useProject } from "@/contexts/ProjectContext";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
+  project_id: string;
   type: 'user' | 'ai';
   content: string;
-  timestamp: Date;
-  citation?: {
-    document: string;
-    page?: number;
-  };
+  created_at: string;
+  citation_document?: string;
+  citation_page?: number;
 }
 
 export const ChatPanel = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      type: 'ai',
-      content: "Hello! I'm your AI document assistant. Upload some documents and I'll help you find answers, summaries, and insights from your files.",
-      timestamp: new Date(),
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { currentProject } = useProject();
+  const { user } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const fetchMessages = async () => {
+    if (!currentProject || !user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      if (data && data.length === 0) {
+        // Add welcome message for new projects
+        const welcomeMessage: Message = {
+          id: 'welcome',
+          project_id: currentProject.id,
+          type: 'ai',
+          content: "Hello! I'm your AI document assistant. Upload some documents and I'll help you find answers, summaries, and insights from your files.",
+          created_at: new Date().toISOString(),
+        };
+        setMessages([welcomeMessage]);
+      } else {
+        setMessages((data || []).map(item => ({
+          ...item,
+          type: item.type as 'user' | 'ai'
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      toast.error('Failed to fetch messages');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
+  useEffect(() => {
+    fetchMessages();
+  }, [currentProject, user]);
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !currentProject || !user) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `temp-${Date.now()}`,
+      project_id: currentProject.id,
       type: 'user',
       content: inputValue,
-      timestamp: new Date(),
+      created_at: new Date().toISOString(),
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue("");
     setIsTyping(true);
-    
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: `I understand you're asking about "${userMessage.content}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`,
-        timestamp: new Date(),
-        citation: documents.length > 0 ? {
-          document: "sample-document.pdf",
-          page: 1
-        } : undefined
-      };
-      setMessages(prev => [...prev, aiMessage]);
+
+    try {
+      // Save user message to database
+      const { data: savedUserMessage, error: userError } = await supabase
+        .from('chat_messages')
+        .insert({
+          project_id: currentProject.id,
+          user_id: user.id,
+          type: 'user',
+          content: currentInput
+        })
+        .select()
+        .single();
+
+      if (userError) throw userError;
+
+      // Replace temp message with saved one
+      setMessages(prev => prev.map(m => m.id === userMessage.id ? {
+        ...savedUserMessage,
+        type: savedUserMessage.type as 'user' | 'ai'
+      } : m));
+
+      // Simulate AI response
+      setTimeout(async () => {
+        const aiContent = `I understand you're asking about "${currentInput}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`;
+        
+        const { data: aiMessage, error: aiError } = await supabase
+          .from('chat_messages')
+          .insert({
+            project_id: currentProject.id,
+            user_id: user.id,
+            type: 'ai',
+            content: aiContent,
+            citation_document: null,
+            citation_page: null
+          })
+          .select()
+          .single();
+
+        if (aiError) throw aiError;
+
+        setMessages(prev => [...prev, {
+          ...aiMessage,
+          type: aiMessage.type as 'user' | 'ai'
+        }]);
+        setIsTyping(false);
+      }, 1200);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
       setIsTyping(false);
-    }, 1200);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -75,8 +155,19 @@ export const ChatPanel = () => {
     }
   };
 
-  // Mock document count for demo
-  const documents = [];
+  if (!currentProject) {
+    return (
+      <Card className="h-full flex flex-col">
+        <CardContent className="flex-1 flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">No project selected</p>
+            <p className="text-xs">Select a project to start chatting</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="h-full flex flex-col">
@@ -91,7 +182,12 @@ export const ChatPanel = () => {
         {/* Messages */}
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4 pb-4">
-            {messages.map((message) => (
+            {loading && (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div>
+              </div>
+            )}
+            {!loading && messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -112,13 +208,13 @@ export const ChatPanel = () => {
                       : 'chat-message-ai border border-border'
                   }`}>
                     <p className="text-sm leading-relaxed">{message.content}</p>
-                    {message.citation && (
+                    {message.citation_document && (
                       <div className="mt-2 pt-2 border-t border-border/50">
                         <div className="flex items-center text-xs text-muted-foreground">
                           <FileText className="h-3 w-3 mr-1" />
-                          <span>Source: {message.citation.document}</span>
-                          {message.citation.page && (
-                            <span className="ml-1">(Page {message.citation.page})</span>
+                          <span>Source: {message.citation_document}</span>
+                          {message.citation_page && (
+                            <span className="ml-1">(Page {message.citation_page})</span>
                           )}
                         </div>
                       </div>

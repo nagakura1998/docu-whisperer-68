@@ -1,68 +1,137 @@
-import { useState, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Upload, FileText, X, Check, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, Search, Upload, FileText, X, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { useProject } from "@/contexts/ProjectContext";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Document {
   id: string;
+  project_id: string;
   name: string;
   size: number;
   type: string;
   status: 'uploading' | 'processing' | 'ready' | 'error';
-  uploadDate: Date;
+  upload_date: string;
 }
 
 export const DocumentPanel = () => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { currentProject } = useProject();
+  const { user } = useAuth();
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    handleFiles(files);
-    setIsUploadOpen(false);
-  }, []);
+  const fetchDocuments = async () => {
+    if (!currentProject || !user) {
+      setLoading(false);
+      return;
+    }
 
-  const handleFiles = useCallback((files: File[]) => {
-    const newDocuments: Document[] = files.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('project_id', currentProject.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDocuments((data || []).map(item => ({
+        ...item,
+        status: item.status as 'uploading' | 'processing' | 'ready' | 'error'
+      })));
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      toast.error('Failed to fetch documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || !currentProject || !user) return;
+
+    const newDocuments: Document[] = Array.from(files).map((file, index) => ({
+      id: `temp-${Date.now()}-${index}`,
+      project_id: currentProject.id,
       name: file.name,
       size: file.size,
       type: file.type,
-      status: 'uploading',
-      uploadDate: new Date()
+      status: 'uploading' as const,
+      upload_date: new Date().toISOString(),
     }));
 
-    setDocuments(prev => [...prev, ...newDocuments]);
+    // Add temporary documents for UI feedback
+    setDocuments(prev => [...newDocuments, ...prev]);
+    setIsUploadOpen(false);
 
-    // Simulate processing
-    newDocuments.forEach(doc => {
-      setTimeout(() => {
-        setDocuments(prev => prev.map(d => 
-          d.id === doc.id ? { ...d, status: 'processing' } : d
-        ));
-        
-        setTimeout(() => {
-          setDocuments(prev => prev.map(d => 
-            d.id === doc.id ? { ...d, status: 'ready' } : d
-          ));
+    // Upload documents to database
+    for (const doc of newDocuments) {
+      try {
+        const { data, error } = await supabase
+          .from('documents')
+          .insert({
+            project_id: currentProject.id,
+            user_id: user.id,
+            name: doc.name,
+            size: doc.size,
+            type: doc.type,
+            status: 'processing'
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Replace temp document with real one
+        setDocuments(prev => 
+          prev.map(d => d.id === doc.id ? { ...data, status: 'processing' as const } : d)
+        );
+
+        // Simulate processing
+        setTimeout(async () => {
+          await supabase
+            .from('documents')
+            .update({ status: 'ready' })
+            .eq('id', data.id);
           
-          toast({
-            title: "Document Ready",
-            description: `${doc.name} is ready for chat.`,
-          });
-        }, 1500);
-      }, 800);
-    });
-  }, [toast]);
+          setDocuments(prev => 
+            prev.map(d => d.id === data.id ? { ...d, status: 'ready' as const } : d)
+          );
+        }, 2000);
+      } catch (error) {
+        console.error('Error uploading document:', error);
+        toast.error(`Failed to upload ${doc.name}`);
+        setDocuments(prev => prev.filter(d => d.id !== doc.id));
+      }
+    }
+  };
 
-  const removeDocument = useCallback((id: string) => {
-    setDocuments(prev => prev.filter(doc => doc.id !== id));
-  }, []);
+  const removeDocument = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      setDocuments(prev => prev.filter(doc => doc.id !== id));
+      toast.success('Document removed');
+    } catch (error) {
+      console.error('Error removing document:', error);
+      toast.error('Failed to remove document');
+    }
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
@@ -86,16 +155,33 @@ export const DocumentPanel = () => {
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  useEffect(() => {
+    fetchDocuments();
+  }, [currentProject, user]);
+
+  if (!currentProject) {
+    return (
+      <Card className="h-full flex flex-col">
+        <CardContent className="flex-1 flex items-center justify-center">
+          <div className="text-center text-muted-foreground">
+            <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">No project selected</p>
+            <p className="text-xs">Select a project to manage documents</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">Documents ({documents.length})</CardTitle>
-          <Button 
-            size="sm" 
-            onClick={() => setIsUploadOpen(!isUploadOpen)}
-            className="bg-primary hover:bg-primary-hover"
-          >
+          <CardTitle className="flex items-center space-x-2 text-lg">
+            <FileText className="h-5 w-5 text-primary" />
+            <span>Documents</span>
+          </CardTitle>
+          <Button onClick={handleFileSelect} size="sm" className="h-8" disabled={!currentProject}>
             <Plus className="h-4 w-4 mr-1" />
             Add
           </Button>
@@ -113,25 +199,46 @@ export const DocumentPanel = () => {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-0">
+      <CardContent className="flex-1 p-0 min-h-0">
         {/* Upload Zone */}
         {isUploadOpen && (
           <div className="p-4 border-b border-border">
             <div
               className="upload-zone rounded-lg p-6 text-center cursor-pointer"
-              onClick={() => document.getElementById('file-input')?.click()}
+              onClick={handleFileSelect}
             >
               <Upload className="h-6 w-6 text-primary mx-auto mb-2" />
               <p className="text-sm text-foreground font-medium">Drop files or click to browse</p>
               <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT, MD</p>
               <input
-                id="file-input"
+                ref={fileInputRef}
                 type="file"
                 multiple
                 accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg"
-                onChange={handleFileSelect}
+                onChange={(e) => handleFiles(e.target.files)}
                 className="hidden"
               />
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-3"></div>
+              <p className="text-sm">Loading documents...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && filteredDocuments.length === 0 && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-muted-foreground">
+              <Upload className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p className="text-sm mb-1">No documents uploaded</p>
+              <p className="text-xs">Add documents to start chatting</p>
             </div>
           </div>
         )}
@@ -139,43 +246,46 @@ export const DocumentPanel = () => {
         {/* Document List */}
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-2">
-            {filteredDocuments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No documents yet</p>
-                <p className="text-sm">Upload your first document to get started</p>
-              </div>
-            ) : (
-              filteredDocuments.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-smooth cursor-pointer"
-                >
-                  <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <div className={`${getStatusColor(doc.status)}`}>
-                      {doc.status === 'ready' ? <Check className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+            {!loading && filteredDocuments.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center space-x-3 flex-1 min-w-0">
+                  <div className={`${getStatusColor(doc.status)}`}>
+                    {doc.status === 'ready' ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : doc.status === 'error' ? (
+                      <AlertCircle className="h-4 w-4" />
+                    ) : doc.status === 'processing' ? (
+                      <Clock className="h-4 w-4" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">{doc.name}</p>
+                    <div className="text-xs text-muted-foreground">
+                      {formatFileSize(doc.size)} • {new Date(doc.upload_date).toLocaleDateString()}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-foreground truncate">{doc.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatFileSize(doc.size)} • {doc.status}
-                      </p>
+                    <div className="text-xs text-muted-foreground capitalize">
+                      {doc.status}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeDocument(doc.id);
-                    }}
-                    className="text-muted-foreground hover:text-destructive h-8 w-8 p-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
                 </div>
-              ))
-            )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeDocument(doc.id);
+                  }}
+                  className="text-muted-foreground hover:text-destructive h-8 w-8 p-0"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
           </div>
         </ScrollArea>
       </CardContent>
