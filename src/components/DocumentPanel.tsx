@@ -200,6 +200,16 @@ export const DocumentPanel = () => {
       </CardHeader>
 
       <CardContent className="flex-1 p-0 min-h-0">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg"
+          onChange={(e) => handleFiles(e.target.files)}
+          className="hidden"
+        />
+        
         {/* Upload Zone */}
         {isUploadOpen && (
           <div className="p-4 border-b border-border">
@@ -210,14 +220,6 @@ export const DocumentPanel = () => {
               <Upload className="h-6 w-6 text-primary mx-auto mb-2" />
               <p className="text-sm text-foreground font-medium">Drop files or click to browse</p>
               <p className="text-xs text-muted-foreground mt-1">PDF, DOCX, TXT, MD</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg"
-                onChange={(e) => handleFiles(e.target.files)}
-                className="hidden"
-              />
             </div>
           </div>
         )}
