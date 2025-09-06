@@ -199,7 +199,7 @@ export const DocumentPanel = () => {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-0 min-h-0">
+      <CardContent className="flex-1 flex flex-col min-h-0 p-0">
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -247,9 +247,9 @@ export const DocumentPanel = () => {
 
         {/* Document List */}
         {!loading && filteredDocuments.length > 0 && (
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 p-4">
             <ScrollArea className="h-full">
-              <div className="p-4 space-y-2 pr-2">
+              <div className="space-y-2 pr-2">
                 {filteredDocuments.map((doc) => (
                   <div
                     key={doc.id}

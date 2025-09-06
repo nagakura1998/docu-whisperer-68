@@ -32,7 +32,7 @@ const Index = () => {
           <div className="w-80 border-r border-border bg-muted/30">
             <div className="h-full p-4 flex flex-col">
               <ProjectSelector />
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <DocumentPanel />
               </div>
             </div>
