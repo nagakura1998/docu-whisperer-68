@@ -246,9 +246,10 @@ export const DocumentPanel = () => {
         )}
 
         {/* Document List */}
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-2">
-            {!loading && filteredDocuments.map((doc) => (
+        {!loading && filteredDocuments.length > 0 && (
+          <ScrollArea className="flex-1 overflow-auto">
+            <div className="p-4 space-y-2">
+            {filteredDocuments.map((doc) => (
               <div
                 key={doc.id}
                 className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
@@ -287,9 +288,10 @@ export const DocumentPanel = () => {
                   <X className="h-3 w-3" />
                 </Button>
               </div>
-            ))}
-          </div>
-        </ScrollArea>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );

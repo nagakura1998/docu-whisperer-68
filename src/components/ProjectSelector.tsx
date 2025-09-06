@@ -92,7 +92,7 @@ export const ProjectSelector = () => {
         </div>
       </CardHeader>
       
-      <CardContent className="p-4 pt-0 min-h-0">
+      <CardContent className="p-4 pt-0 max-h-96 overflow-hidden">
         {projects.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -100,7 +100,7 @@ export const ProjectSelector = () => {
             <p className="text-xs">Create your first project to get started</p>
           </div>
         ) : (
-          <ScrollArea className="max-h-96">
+          <ScrollArea className="h-full">
             <div className="space-y-2 pr-4">
               {projects.map((project) => (
                 <div
