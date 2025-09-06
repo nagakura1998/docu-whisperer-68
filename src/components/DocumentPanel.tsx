@@ -175,7 +175,7 @@ export const DocumentPanel = () => {
 
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center space-x-2 text-lg">
             <FileText className="h-5 w-5 text-primary" />
@@ -247,50 +247,52 @@ export const DocumentPanel = () => {
 
         {/* Document List */}
         {!loading && filteredDocuments.length > 0 && (
-          <ScrollArea className="flex-1 overflow-auto">
-            <div className="p-4 space-y-2">
-            {filteredDocuments.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <div className={`${getStatusColor(doc.status)}`}>
-                    {doc.status === 'ready' ? (
-                      <CheckCircle className="h-4 w-4" />
-                    ) : doc.status === 'error' ? (
-                      <AlertCircle className="h-4 w-4" />
-                    ) : doc.status === 'processing' ? (
-                      <Clock className="h-4 w-4" />
-                    ) : (
-                      <FileText className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-foreground truncate">{doc.name}</p>
-                    <div className="text-xs text-muted-foreground">
-                      {formatFileSize(doc.size)} • {new Date(doc.upload_date).toLocaleDateString()}
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-full">
+              <div className="p-4 space-y-2 pr-2">
+                {filteredDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <div className={`${getStatusColor(doc.status)}`}>
+                        {doc.status === 'ready' ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : doc.status === 'error' ? (
+                          <AlertCircle className="h-4 w-4" />
+                        ) : doc.status === 'processing' ? (
+                          <Clock className="h-4 w-4" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-foreground truncate">{doc.name}</p>
+                        <div className="text-xs text-muted-foreground">
+                          {formatFileSize(doc.size)} • {new Date(doc.upload_date).toLocaleDateString()}
+                        </div>
+                        <div className="text-xs text-muted-foreground capitalize">
+                          {doc.status}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground capitalize">
-                      {doc.status}
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeDocument(doc.id);
+                      }}
+                      className="text-muted-foreground hover:text-destructive h-8 w-8 p-0"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeDocument(doc.id);
-                  }}
-                  className="text-muted-foreground hover:text-destructive h-8 w-8 p-0"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                ))}
               </div>
-              ))}
-            </div>
-          </ScrollArea>
+            </ScrollArea>
+          </div>
         )}
       </CardContent>
     </Card>

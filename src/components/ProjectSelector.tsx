@@ -44,8 +44,8 @@ export const ProjectSelector = () => {
   }
 
   return (
-    <Card className="mb-4">
-      <CardHeader className="pb-3">
+    <Card className="mb-4 flex flex-col h-80">
+      <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Projects</CardTitle>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -92,7 +92,7 @@ export const ProjectSelector = () => {
         </div>
       </CardHeader>
       
-      <CardContent className="p-4 pt-0 max-h-96 overflow-hidden">
+      <CardContent className="p-4 pt-0 flex-1 min-h-0">
         {projects.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -101,7 +101,7 @@ export const ProjectSelector = () => {
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="space-y-2 pr-4">
+            <div className="space-y-2 pr-2">
               {projects.map((project) => (
                 <div
                   key={project.id}
