@@ -31,7 +31,9 @@ const Index = () => {
           {/* Left Panel - Projects & Documents */}
           <div className="w-96 border-r border-border bg-muted/30">
             <div className="h-full p-4 flex flex-col">
-              <ProjectSelector />
+              <div className="flex-shrink-0 mb-4">
+                <ProjectSelector />
+              </div>
               <div className="flex-1 min-h-0 overflow-hidden">
                 <DocumentPanel />
               </div>

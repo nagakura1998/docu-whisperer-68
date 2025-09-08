@@ -223,28 +223,30 @@ export const DocumentPanel = () => {
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2 text-lg">
-            <FileText className="h-5 w-5 text-primary" />
-            <span>Documents</span>
-            {readyDocumentsCount > 0 && (
-              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                {readyDocumentsCount} ready
-              </span>
-            )}
-          </CardTitle>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center space-x-2 text-lg">
+              <FileText className="h-5 w-5 text-primary" />
+              <span>Documents</span>
+              {readyDocumentsCount > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                  {readyDocumentsCount} ready
+                </span>
+              )}
+            </CardTitle>
+          </div>
           <div className="flex gap-2">
             <Button 
               onClick={sendDocumentsForEmbedding} 
               size="sm" 
-              className="h-8"
+              className="h-8 flex-1"
               disabled={!currentProject || readyDocumentsCount === 0 || isProcessingEmbeddings}
               variant="outline"
             >
               <Send className="h-4 w-4 mr-1" />
               {isProcessingEmbeddings ? 'Processing...' : 'Process'}
             </Button>
-            <Button onClick={handleFileSelect} size="sm" className="h-8" disabled={!currentProject}>
+            <Button onClick={handleFileSelect} size="sm" className="h-8 flex-1" disabled={!currentProject}>
               <Plus className="h-4 w-4 mr-1" />
               Add
             </Button>
