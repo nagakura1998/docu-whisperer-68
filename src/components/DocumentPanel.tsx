@@ -17,6 +17,7 @@ interface Document {
   type: string;
   status: 'uploading' | 'processing' | 'ready' | 'error';
   upload_date: string;
+  storage_path: string;
 }
 
 export const DocumentPanel = () => {
@@ -62,58 +63,80 @@ export const DocumentPanel = () => {
   const handleFiles = async (files: FileList | null) => {
     if (!files || !currentProject || !user) return;
 
-    const newDocuments: Document[] = Array.from(files).map((file, index) => ({
-      id: `temp-${Date.now()}-${index}`,
-      project_id: currentProject.id,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      status: 'uploading' as const,
-      upload_date: new Date().toISOString(),
-    }));
-
-    // Add temporary documents for UI feedback
-    setDocuments(prev => [...newDocuments, ...prev]);
+    const filesToUpload = Array.from(files);
     setIsUploadOpen(false);
 
-    // Upload documents to database
-    for (const doc of newDocuments) {
+    // Process each file individually
+    for (const file of filesToUpload) {
+      const tempId = `temp-${Date.now()}-${file.name}`;
+      const tempDoc: Document = {
+        id: tempId,
+        project_id: currentProject.id,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: 'uploading',
+        upload_date: new Date().toISOString(),
+        storage_path: '', // Initially empty
+      };
+
+      // Optimistically add to UI
+      setDocuments(prev => [tempDoc, ...prev]);
+
       try {
-        const { data, error } = await supabase
+        // 1. Upload file to storage
+        const filePath = `${user.id}/${currentProject.id}/${Date.now()}-${file.name}`;
+        const { data: storageData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          throw new Error(`Storage Error: ${uploadError.message}`);
+        }
+
+        // 2. Insert document record into database
+        const { data: dbDoc, error: dbError } = await supabase
           .from('documents')
           .insert({
             project_id: currentProject.id,
             user_id: user.id,
-            name: doc.name,
-            size: doc.size,
-            type: doc.type,
-            status: 'processing'
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            status: 'processing',
+            storage_path: storageData.path,
           })
           .select()
           .single();
 
-        if (error) throw error;
+        if (dbError) {
+          // If DB insert fails, try to delete the uploaded file
+          await supabase.storage.from('documents').remove([filePath]);
+          throw new Error(`Database Error: ${dbError.message}`);
+        }
 
-        // Replace temp document with real one
-        setDocuments(prev => 
-          prev.map(d => d.id === doc.id ? { ...data, status: 'processing' as const } : d)
+        // Update UI from temp doc to real doc with 'processing' status
+        setDocuments(prev =>
+          prev.map(d => (d.id === tempId ? { ...dbDoc, status: 'processing' } : d))
         );
 
-        // Simulate processing
+        // 3. Simulate processing and set to 'ready'
         setTimeout(async () => {
           await supabase
             .from('documents')
             .update({ status: 'ready' })
-            .eq('id', data.id);
+            .eq('id', dbDoc.id);
           
-          setDocuments(prev => 
-            prev.map(d => d.id === data.id ? { ...d, status: 'ready' as const } : d)
+          setDocuments(prev =>
+            prev.map(d => (d.id === dbDoc.id ? { ...d, status: 'ready' } : d))
           );
         }, 2000);
-      } catch (error) {
+
+      } catch (error: any) {
         console.error('Error uploading document:', error);
-        toast.error(`Failed to upload ${doc.name}`);
-        setDocuments(prev => prev.filter(d => d.id !== doc.id));
+        toast.error(`Failed to upload ${file.name}: ${error.message}`);
+        // Remove the temporary document from UI on failure
+        setDocuments(prev => prev.filter(d => d.id !== tempId));
       }
     }
   };

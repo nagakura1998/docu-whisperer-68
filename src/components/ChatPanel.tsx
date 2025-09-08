@@ -8,6 +8,8 @@ import { useProject } from "@/contexts/ProjectContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Message {
   id: string;
@@ -79,6 +81,61 @@ export const ChatPanel = () => {
     fetchMessages();
   }, [currentProject, user]);
 
+  const sendMessageMutation = useMutation({
+    mutationFn: async (messageData: {citation_document:string | null; 
+                                    citation_page: number | null;
+                                    content: string;
+                                    created_at: string;
+                                    id: string;
+                                    project_id: string;
+                                    type: string;
+                                    user_id: string}) => {
+      const response = await apiRequest('POST', 'http://localhost:5001/api/chat/messages', {
+        message: messageData,
+        isBot: false,
+      });
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      // queryClient.invalidateQueries({ queryKey: ['/api/chat/messages'] });
+      // setInputValue("");
+      console.log(data)
+
+
+      const aiContent = `I understand you're asking about "${data.message}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`;
+        
+        const { data: aiMessage, error: aiError } = await supabase
+          .from('chat_messages')
+          .insert({
+            project_id: currentProject.id,
+            user_id: user.id,
+            type: 'ai',
+            content: aiContent,
+            citation_document: null,
+            citation_page: null
+          })
+          .select()
+          .single();
+
+        if (aiError) throw aiError;
+
+        setMessages(prev => [...prev, {
+          ...aiMessage,
+          type: aiMessage.type as 'user' | 'ai'
+        }]);
+        setIsTyping(false);
+
+
+
+      // setMessages(prev => [...prev, data]);
+      // setIsTyping(false);
+      // queryClient.setQueryData<Message[]>(["chatHistory"], (old = []) => [
+      //   ...old,
+      //   { role: "bot", text: data.reply },
+      // ]);
+    },
+  });
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !currentProject || !user) return;
 
@@ -116,31 +173,32 @@ export const ChatPanel = () => {
         type: savedUserMessage.type as 'user' | 'ai'
       } : m));
 
-      // Simulate AI response
-      setTimeout(async () => {
-        const aiContent = `I understand you're asking about "${currentInput}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`;
+      sendMessageMutation.mutate(savedUserMessage);
+      // // Simulate AI response
+      // setTimeout(async () => {
+      //   const aiContent = `I understand you're asking about "${currentInput}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`;
         
-        const { data: aiMessage, error: aiError } = await supabase
-          .from('chat_messages')
-          .insert({
-            project_id: currentProject.id,
-            user_id: user.id,
-            type: 'ai',
-            content: aiContent,
-            citation_document: null,
-            citation_page: null
-          })
-          .select()
-          .single();
+      //   const { data: aiMessage, error: aiError } = await supabase
+      //     .from('chat_messages')
+      //     .insert({
+      //       project_id: currentProject.id,
+      //       user_id: user.id,
+      //       type: 'ai',
+      //       content: aiContent,
+      //       citation_document: null,
+      //       citation_page: null
+      //     })
+      //     .select()
+      //     .single();
 
-        if (aiError) throw aiError;
+      //   if (aiError) throw aiError;
 
-        setMessages(prev => [...prev, {
-          ...aiMessage,
-          type: aiMessage.type as 'user' | 'ai'
-        }]);
-        setIsTyping(false);
-      }, 1200);
+      //   setMessages(prev => [...prev, {
+      //     ...aiMessage,
+      //     type: aiMessage.type as 'user' | 'ai'
+      //   }]);
+      //   setIsTyping(false);
+      // }, 1200);
     } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
