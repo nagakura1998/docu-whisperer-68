@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, Upload, FileText, X, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, Search, Upload, FileText, X, Clock, CheckCircle, AlertCircle, Send } from "lucide-react";
 import { useProject } from "@/contexts/ProjectContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ export const DocumentPanel = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isProcessingEmbeddings, setIsProcessingEmbeddings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { currentProject } = useProject();
   const { user } = useAuth();
@@ -151,9 +152,55 @@ export const DocumentPanel = () => {
     }
   };
 
+  const sendDocumentsForEmbedding = async () => {
+    if (!currentProject || !user) return;
+    
+    const readyDocuments = documents.filter(doc => doc.status === 'ready');
+    
+    if (readyDocuments.length === 0) {
+      toast.error('No ready documents to process');
+      return;
+    }
+
+    setIsProcessingEmbeddings(true);
+    
+    try {
+      // Replace with your actual backend endpoint
+      const response = await fetch('/api/embeddings/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          user_id: user.id,
+          documents: readyDocuments.map(doc => ({
+            id: doc.id,
+            name: doc.name,
+            type: doc.type,
+            size: doc.size
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process documents');
+      }
+
+      toast.success(`Sent ${readyDocuments.length} documents for embedding processing`);
+    } catch (error) {
+      console.error('Error sending documents for embedding:', error);
+      toast.error('Failed to send documents for processing');
+    } finally {
+      setIsProcessingEmbeddings(false);
+    }
+  };
+
   const filteredDocuments = documents.filter(doc =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const readyDocumentsCount = documents.filter(doc => doc.status === 'ready').length;
 
   useEffect(() => {
     fetchDocuments();
@@ -180,11 +227,28 @@ export const DocumentPanel = () => {
           <CardTitle className="flex items-center space-x-2 text-lg">
             <FileText className="h-5 w-5 text-primary" />
             <span>Documents</span>
+            {readyDocumentsCount > 0 && (
+              <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                {readyDocumentsCount} ready
+              </span>
+            )}
           </CardTitle>
-          <Button onClick={handleFileSelect} size="sm" className="h-8" disabled={!currentProject}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={sendDocumentsForEmbedding} 
+              size="sm" 
+              className="h-8"
+              disabled={!currentProject || readyDocumentsCount === 0 || isProcessingEmbeddings}
+              variant="outline"
+            >
+              <Send className="h-4 w-4 mr-1" />
+              {isProcessingEmbeddings ? 'Processing...' : 'Process'}
+            </Button>
+            <Button onClick={handleFileSelect} size="sm" className="h-8" disabled={!currentProject}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
         </div>
         
         {/* Search */}
