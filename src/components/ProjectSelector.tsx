@@ -44,7 +44,7 @@ export const ProjectSelector = () => {
   }
 
   return (
-    <Card className="mb-4 flex flex-col h-80">
+    <Card className="mb-4 flex flex-col h-60">
       <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">Projects</CardTitle>

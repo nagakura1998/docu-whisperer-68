@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Search, Upload, FileText, X, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, Search, Upload, FileText, X, Clock, CheckCircle, AlertCircle, Send } from "lucide-react";
 import { useProject } from "@/contexts/ProjectContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ interface Document {
   type: string;
   status: 'uploading' | 'processing' | 'ready' | 'error';
   upload_date: string;
+  storage_path: string;
 }
 
 export const DocumentPanel = () => {
@@ -24,6 +25,7 @@ export const DocumentPanel = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isProcessingEmbeddings, setIsProcessingEmbeddings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { currentProject } = useProject();
   const { user } = useAuth();
@@ -61,58 +63,80 @@ export const DocumentPanel = () => {
   const handleFiles = async (files: FileList | null) => {
     if (!files || !currentProject || !user) return;
 
-    const newDocuments: Document[] = Array.from(files).map((file, index) => ({
-      id: `temp-${Date.now()}-${index}`,
-      project_id: currentProject.id,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      status: 'uploading' as const,
-      upload_date: new Date().toISOString(),
-    }));
-
-    // Add temporary documents for UI feedback
-    setDocuments(prev => [...newDocuments, ...prev]);
+    const filesToUpload = Array.from(files);
     setIsUploadOpen(false);
 
-    // Upload documents to database
-    for (const doc of newDocuments) {
+    // Process each file individually
+    for (const file of filesToUpload) {
+      const tempId = `temp-${Date.now()}-${file.name}`;
+      const tempDoc: Document = {
+        id: tempId,
+        project_id: currentProject.id,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: 'uploading',
+        upload_date: new Date().toISOString(),
+        storage_path: '', // Initially empty
+      };
+
+      // Optimistically add to UI
+      setDocuments(prev => [tempDoc, ...prev]);
+
       try {
-        const { data, error } = await supabase
+        // 1. Upload file to storage
+        const filePath = `${user.id}/${currentProject.id}/${Date.now()}-${file.name}`;
+        const { data: storageData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file);
+
+        if (uploadError) {
+          throw new Error(`Storage Error: ${uploadError.message}`);
+        }
+
+        // 2. Insert document record into database
+        const { data: dbDoc, error: dbError } = await supabase
           .from('documents')
           .insert({
             project_id: currentProject.id,
             user_id: user.id,
-            name: doc.name,
-            size: doc.size,
-            type: doc.type,
-            status: 'processing'
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            status: 'processing',
+            storage_path: storageData.path,
           })
           .select()
           .single();
 
-        if (error) throw error;
+        if (dbError) {
+          // If DB insert fails, try to delete the uploaded file
+          await supabase.storage.from('documents').remove([filePath]);
+          throw new Error(`Database Error: ${dbError.message}`);
+        }
 
-        // Replace temp document with real one
-        setDocuments(prev => 
-          prev.map(d => d.id === doc.id ? { ...data, status: 'processing' as const } : d)
+        // Update UI from temp doc to real doc with 'processing' status
+        setDocuments(prev =>
+          prev.map(d => (d.id === tempId ? { ...dbDoc, status: 'processing' } : d))
         );
 
-        // Simulate processing
+        // 3. Simulate processing and set to 'ready'
         setTimeout(async () => {
           await supabase
             .from('documents')
             .update({ status: 'ready' })
-            .eq('id', data.id);
+            .eq('id', dbDoc.id);
           
-          setDocuments(prev => 
-            prev.map(d => d.id === data.id ? { ...d, status: 'ready' as const } : d)
+          setDocuments(prev =>
+            prev.map(d => (d.id === dbDoc.id ? { ...d, status: 'ready' } : d))
           );
         }, 2000);
-      } catch (error) {
+
+      } catch (error: any) {
         console.error('Error uploading document:', error);
-        toast.error(`Failed to upload ${doc.name}`);
-        setDocuments(prev => prev.filter(d => d.id !== doc.id));
+        toast.error(`Failed to upload ${file.name}: ${error.message}`);
+        // Remove the temporary document from UI on failure
+        setDocuments(prev => prev.filter(d => d.id !== tempId));
       }
     }
   };
@@ -151,9 +175,55 @@ export const DocumentPanel = () => {
     }
   };
 
+  const sendDocumentsForEmbedding = async () => {
+    if (!currentProject || !user) return;
+    
+    const readyDocuments = documents.filter(doc => doc.status === 'ready');
+    
+    if (readyDocuments.length === 0) {
+      toast.error('No ready documents to process');
+      return;
+    }
+
+    setIsProcessingEmbeddings(true);
+    
+    try {
+      // Replace with your actual backend endpoint
+      const response = await fetch('/api/embeddings/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          project_id: currentProject.id,
+          user_id: user.id,
+          documents: readyDocuments.map(doc => ({
+            id: doc.id,
+            name: doc.name,
+            type: doc.type,
+            size: doc.size
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to process documents');
+      }
+
+      toast.success(`Sent ${readyDocuments.length} documents for embedding processing`);
+    } catch (error) {
+      console.error('Error sending documents for embedding:', error);
+      toast.error('Failed to send documents for processing');
+    } finally {
+      setIsProcessingEmbeddings(false);
+    }
+  };
+
   const filteredDocuments = documents.filter(doc =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const readyDocumentsCount = documents.filter(doc => doc.status === 'ready').length;
 
   useEffect(() => {
     fetchDocuments();
@@ -176,19 +246,38 @@ export const DocumentPanel = () => {
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2 text-lg">
-            <FileText className="h-5 w-5 text-primary" />
-            <span>Documents</span>
-          </CardTitle>
-          <Button onClick={handleFileSelect} size="sm" className="h-8" disabled={!currentProject}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center space-x-2 text-lg">
+              <FileText className="h-5 w-5 text-primary" />
+              <span>Documents</span>
+              {readyDocumentsCount > 0 && (
+                <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
+                  {readyDocumentsCount} ready
+                </span>
+              )}
+            </CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              onClick={sendDocumentsForEmbedding} 
+              size="sm" 
+              className="h-8 flex-1"
+              disabled={!currentProject || readyDocumentsCount === 0 || isProcessingEmbeddings}
+              variant="outline"
+            >
+              <Send className="h-4 w-4 mr-1" />
+              {isProcessingEmbeddings ? 'Processing...' : 'Process'}
+            </Button>
+            <Button onClick={handleFileSelect} size="sm" className="h-8 flex-1" disabled={!currentProject}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
         </div>
         
         {/* Search */}
-        <div className="relative mt-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search documents..."
@@ -199,7 +288,7 @@ export const DocumentPanel = () => {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col min-h-0 p-0">
+      <CardContent className="flex-1 p-4 overflow-hidden">
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -247,14 +336,13 @@ export const DocumentPanel = () => {
 
         {/* Document List */}
         {!loading && filteredDocuments.length > 0 && (
-          <div className="flex-1 min-h-0 p-4">
-            <ScrollArea className="h-full">
-              <div className="space-y-2 pr-2">
-                {filteredDocuments.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
-                  >
+          <ScrollArea className="flex-1">
+            <div className="space-y-2 p-4">
+              {filteredDocuments.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                       <div className={`${getStatusColor(doc.status)}`}>
                         {doc.status === 'ready' ? (
@@ -290,9 +378,8 @@ export const DocumentPanel = () => {
                     </Button>
                   </div>
                 ))}
-              </div>
-            </ScrollArea>
-          </div>
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>

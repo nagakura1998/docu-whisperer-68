@@ -29,9 +29,11 @@ const Index = () => {
         
         <div className="flex-1 flex overflow-hidden">
           {/* Left Panel - Projects & Documents */}
-          <div className="w-80 border-r border-border bg-muted/30">
+          <div className="w-[420px] border-r border-border bg-muted/30">
             <div className="h-full p-4 flex flex-col">
-              <ProjectSelector />
+              <div className="flex-shrink-0 mb-0">
+                <ProjectSelector />
+              </div>
               <div className="flex-1 min-h-0 overflow-hidden">
                 <DocumentPanel />
               </div>
