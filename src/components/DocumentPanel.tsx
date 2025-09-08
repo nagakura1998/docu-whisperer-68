@@ -265,7 +265,7 @@ export const DocumentPanel = () => {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col min-h-0 p-0">
+      <CardContent className="flex-1 p-4 overflow-hidden">
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -313,14 +313,13 @@ export const DocumentPanel = () => {
 
         {/* Document List */}
         {!loading && filteredDocuments.length > 0 && (
-          <div className="flex-1 min-h-0 p-4">
-            <ScrollArea className="h-full">
-              <div className="space-y-2 pr-2">
-                {filteredDocuments.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
-                  >
+          <ScrollArea className="flex-1">
+            <div className="space-y-2 p-4">
+              {filteredDocuments.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                >
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                       <div className={`${getStatusColor(doc.status)}`}>
                         {doc.status === 'ready' ? (
@@ -356,9 +355,8 @@ export const DocumentPanel = () => {
                     </Button>
                   </div>
                 ))}
-              </div>
-            </ScrollArea>
-          </div>
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
