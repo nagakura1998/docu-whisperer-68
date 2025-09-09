@@ -63,11 +63,11 @@ export type Database = {
           project_id: string
           size: number
           status: string
+          storage_path: string | null
           type: string
           updated_at: string
           upload_date: string
-          user_id: string,
-          storage_path: string
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -76,11 +76,11 @@ export type Database = {
           project_id: string
           size: number
           status?: string
+          storage_path?: string | null
           type: string
           updated_at?: string
           upload_date?: string
           user_id: string
-          storage_path?: string
         }
         Update: {
           created_at?: string
@@ -89,11 +89,11 @@ export type Database = {
           project_id?: string
           size?: number
           status?: string
+          storage_path?: string | null
           type?: string
           updated_at?: string
           upload_date?: string
           user_id?: string
-          storage_path?: string
         }
         Relationships: [
           {
