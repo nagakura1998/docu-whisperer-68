@@ -189,14 +189,7 @@ export const DocumentPanel = () => {
 
   const removeDocument = async (id: string) => {
     try {
-      const cur_doc = documents.filter(doc => doc.id === id);
-      if (cur_doc.length !==1)
-        throw "Cannot find document!";
-
-      await supabase.storage
-          .from('documents')
-          .remove([cur_doc[0].storage_path]);
-
+      // Only delete from database - storage cleanup is handled by trigger
       const { error } = await supabase
         .from('documents')
         .delete()
