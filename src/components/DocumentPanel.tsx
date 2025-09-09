@@ -8,6 +8,8 @@ import { useProject } from "@/contexts/ProjectContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Document {
   id: string;
@@ -55,6 +57,50 @@ export const DocumentPanel = () => {
       setLoading(false);
     }
   };
+
+  const documentUpdateMutation = useMutation({
+      mutationFn: async (data:{path: string, name: string}) => {
+        const response = await apiRequest('POST', 'http://localhost:5001/api/doc/update', {
+          path: data.path,
+          name: data.name
+        });
+        return response.json();
+      },
+      onSuccess: async (data) => {
+        console.log(data)  
+  
+        if (data.success){
+          documents.map(async doc=>{
+            await supabase
+            .from('documents')
+            .update({ status: 'ready' })
+            .eq('id', doc.id);
+          
+            setDocuments(prev =>
+              prev.map(d => (d.id === doc.id ? { ...d, status: 'ready' } : d))
+            );
+          })
+          toast.success(`Sent ${documents.length} documents for embedding processing`);
+        }
+        else{
+          documents.map(async doc=>{
+            await supabase
+            .from('documents')
+            .update({ status: 'error' })
+            .eq('id', doc.id);
+          
+            setDocuments(prev =>
+              prev.map(d => (d.id === doc.id ? { ...d, status: 'error' } : d))
+            );
+          })
+          toast.error('Failed to send documents for processing');
+        }
+          
+      },
+      onSettled: (data, error) => {
+        setIsProcessingEmbeddings(false);
+      }
+    });
 
   const handleFileSelect = () => {
     fileInputRef.current?.click();
@@ -120,17 +166,17 @@ export const DocumentPanel = () => {
           prev.map(d => (d.id === tempId ? { ...dbDoc, status: 'processing' } : d))
         );
 
-        // 3. Simulate processing and set to 'ready'
-        setTimeout(async () => {
-          await supabase
-            .from('documents')
-            .update({ status: 'ready' })
-            .eq('id', dbDoc.id);
+        // // 3. Simulate processing and set to 'ready'
+        // setTimeout(async () => {
+        //   await supabase
+        //     .from('documents')
+        //     .update({ status: 'ready' })
+        //     .eq('id', dbDoc.id);
           
-          setDocuments(prev =>
-            prev.map(d => (d.id === dbDoc.id ? { ...d, status: 'ready' } : d))
-          );
-        }, 2000);
+        //   setDocuments(prev =>
+        //     prev.map(d => (d.id === dbDoc.id ? { ...d, status: 'ready' } : d))
+        //   );
+        // }, 2000);
 
       } catch (error: any) {
         console.error('Error uploading document:', error);
@@ -143,6 +189,14 @@ export const DocumentPanel = () => {
 
   const removeDocument = async (id: string) => {
     try {
+      const cur_doc = documents.filter(doc => doc.id === id);
+      if (cur_doc.length !==1)
+        throw "Cannot find document!";
+
+      await supabase.storage
+          .from('documents')
+          .remove([cur_doc[0].storage_path]);
+
       const { error } = await supabase
         .from('documents')
         .delete()
@@ -178,52 +232,58 @@ export const DocumentPanel = () => {
   const sendDocumentsForEmbedding = async () => {
     if (!currentProject || !user) return;
     
-    const readyDocuments = documents.filter(doc => doc.status === 'ready');
+    // const readyDocuments = documents.filter(doc => doc.status === 'ready');
     
-    if (readyDocuments.length === 0) {
+    if (documents.length === 0) {
       toast.error('No ready documents to process');
       return;
     }
 
     setIsProcessingEmbeddings(true);
-    
-    try {
-      // Replace with your actual backend endpoint
-      const response = await fetch('/api/embeddings/process', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          project_id: currentProject.id,
-          user_id: user.id,
-          documents: readyDocuments.map(doc => ({
-            id: doc.id,
-            name: doc.name,
-            type: doc.type,
-            size: doc.size
-          }))
-        })
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to process documents');
-      }
+    documentUpdateMutation.mutate({
+      name: `${user.id}_${currentProject.id}`,
+      path: `${user.id}/${currentProject.id}`
+    });
 
-      toast.success(`Sent ${readyDocuments.length} documents for embedding processing`);
-    } catch (error) {
-      console.error('Error sending documents for embedding:', error);
-      toast.error('Failed to send documents for processing');
-    } finally {
-      setIsProcessingEmbeddings(false);
-    }
+    // try {
+    //   // Replace with your actual backend endpoint
+    //   const response = await fetch('/api/embeddings/process', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({
+    //       project_id: currentProject.id,
+    //       user_id: user.id,
+    //       documents: readyDocuments.map(doc => ({
+    //         id: doc.id,
+    //         name: doc.name,
+    //         type: doc.type,
+    //         size: doc.size
+    //       }))
+    //     })
+    //   });
+
+    //   if (!response.ok) {
+    //     throw new Error('Failed to process documents');
+    //   }
+
+    //   toast.success(`Sent ${readyDocuments.length} documents for embedding processing`);
+    // } catch (error) {
+    //   console.error('Error sending documents for embedding:', error);
+    //   toast.error('Failed to send documents for processing');
+    // } finally {
+    //   setIsProcessingEmbeddings(false);
+    // }
   };
 
   const filteredDocuments = documents.filter(doc =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const readyDocumentsCount = documents.filter(doc => doc.status === 'ready').length;
+  //const readyDocumentsCount = documents.filter(doc => doc.status === 'ready').length;
+  const documentsCount = documents.length;
 
   useEffect(() => {
     fetchDocuments();
@@ -251,9 +311,9 @@ export const DocumentPanel = () => {
             <CardTitle className="flex items-center space-x-2 text-lg">
               <FileText className="h-5 w-5 text-primary" />
               <span>Documents</span>
-              {readyDocumentsCount > 0 && (
+              {documentsCount > 0 && (
                 <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                  {readyDocumentsCount} ready
+                  {documentsCount} ready
                 </span>
               )}
             </CardTitle>
@@ -263,7 +323,7 @@ export const DocumentPanel = () => {
               onClick={sendDocumentsForEmbedding} 
               size="sm" 
               className="h-8 flex-1"
-              disabled={!currentProject || readyDocumentsCount === 0 || isProcessingEmbeddings}
+              disabled={!currentProject || documentsCount === 0 || isProcessingEmbeddings}
               variant="outline"
             >
               <Send className="h-4 w-4 mr-1" />
@@ -288,7 +348,7 @@ export const DocumentPanel = () => {
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-4 overflow-hidden">
+      <CardContent className="flex-1 p-4 overflow-hidden min-h-0">
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -336,8 +396,8 @@ export const DocumentPanel = () => {
 
         {/* Document List */}
         {!loading && filteredDocuments.length > 0 && (
-          <ScrollArea className="flex-1">
-            <div className="space-y-2 p-4">
+          <ScrollArea className="h-full -mx-4 px-4">
+            <div className="space-y-2">
               {filteredDocuments.map((doc) => (
                 <div
                   key={doc.id}

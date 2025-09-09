@@ -123,7 +123,7 @@ export const ChatPanel = () => {
           ...aiMessage,
           type: aiMessage.type as 'user' | 'ai'
         }]);
-        setIsTyping(false);
+        
 
 
 
@@ -134,6 +134,9 @@ export const ChatPanel = () => {
       //   { role: "bot", text: data.reply },
       // ]);
     },
+    onSettled: (data, error) => {
+      setIsTyping(false);
+    }
   });
 
   const handleSendMessage = async () => {
