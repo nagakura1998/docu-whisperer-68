@@ -91,26 +91,24 @@ export const ChatPanel = () => {
                                     type: string;
                                     user_id: string}) => {
       const response = await apiRequest('POST', 'http://localhost:5001/api/chat/messages', {
-        message: messageData,
-        isBot: false,
+        collection: `${messageData.user_id}_${messageData.project_id}`,
+        message: messageData.content,
       });
       return response.json();
     },
     onSuccess: async (data) => {
-      // queryClient.invalidateQueries({ queryKey: ['/api/chat/messages'] });
-      // setInputValue("");
       console.log(data)
 
-
-      const aiContent = `I understand you're asking about "${data.message}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`;
-        
+      if (data.success){
+        //const aiContent = `I understand you're asking about "${data.message}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`;
+        console.log("here")
         const { data: aiMessage, error: aiError } = await supabase
           .from('chat_messages')
           .insert({
             project_id: currentProject.id,
             user_id: user.id,
             type: 'ai',
-            content: aiContent,
+            content: data.response,
             citation_document: null,
             citation_page: null
           })
@@ -123,16 +121,12 @@ export const ChatPanel = () => {
           ...aiMessage,
           type: aiMessage.type as 'user' | 'ai'
         }]);
-        
+      }
+      else{
+        setIsTyping(false);
+        throw data.response
+      }
 
-
-
-      // setMessages(prev => [...prev, data]);
-      // setIsTyping(false);
-      // queryClient.setQueryData<Message[]>(["chatHistory"], (old = []) => [
-      //   ...old,
-      //   { role: "bot", text: data.reply },
-      // ]);
     },
     onSettled: (data, error) => {
       setIsTyping(false);
