@@ -100,7 +100,6 @@ export const ChatPanel = () => {
       console.log(data)
 
       if (data.success){
-        //const aiContent = `I understand you're asking about "${data.message}". Once you upload some documents, I'll be able to search through them and provide detailed answers with specific citations.`;
         console.log("here")
         const { data: aiMessage, error: aiError } = await supabase
           .from('chat_messages')
@@ -117,10 +116,37 @@ export const ChatPanel = () => {
 
         if (aiError) throw aiError;
 
-        setMessages(prev => [...prev, {
+        // Add empty AI message first
+        const emptyAiMessage = {
           ...aiMessage,
+          content: '',
           type: aiMessage.type as 'user' | 'ai'
-        }]);
+        };
+        
+        setMessages(prev => [...prev, emptyAiMessage]);
+
+        // Stream the content character by character
+        const fullResponse = data.response;
+        let currentIndex = 0;
+
+        const streamText = () => {
+          if (currentIndex < fullResponse.length) {
+            const nextChar = fullResponse[currentIndex];
+            setMessages(prev => 
+              prev.map(msg => 
+                msg.id === aiMessage.id 
+                  ? { ...msg, content: msg.content + nextChar }
+                  : msg
+              )
+            );
+            currentIndex++;
+            setTimeout(streamText, 30); // Adjust speed here (30ms per character)
+          } else {
+            setIsTyping(false);
+          }
+        };
+
+        streamText();
       }
       else{
         setIsTyping(false);
